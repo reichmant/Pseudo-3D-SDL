@@ -1,1 +1,1 @@
-# Pseudo-3D-SDL
+# Pseudo-3D-SDL2
