@@ -14,6 +14,7 @@
 #include "stdio.h"
 #include "stdlib.h"  // rand(), srand()
 #include "time.h"    // time()
+#include "pthread.h"
 
 // Function Declarations
 void DrawPixel(int r, int g, int b, int x, int y);
