@@ -21,8 +21,8 @@
 
 #define WORLD_WIDTH 5
 #define WORLD_HEIGHT 9
-
-int worldMap[WORLD_WIDTH][WORLD_HEIGHT]=
+double positionInfo[9] = {3.0, 6.0, -1.0, 0.0, 0.0, 0.66, 0.0, 0.0, FALSE};
+int worldMap[WORLD_HEIGHT][WORLD_WIDTH]=
 {
 	{1,2,3,2,1},
 	{1,0,0,0,1},
@@ -40,8 +40,9 @@ int worldMap[WORLD_WIDTH][WORLD_HEIGHT]=
 void DrawPixel(int r, int g, int b, int x, int y);
 int ValidateColorRange(int color);
 void RenderBackground();
-void CheckForInput();
+void CheckForInput(double *positionInfo);
 void* RayCast(double *positionInfo);
+bool verLine(int x, int y1, int y2, int wall_color);
 
 // Screen dimension constants
 const int SCREEN_WIDTH = 640;
@@ -66,10 +67,9 @@ SDL_Window *window;
 * --------------------------------- end interruptHandler() ---- */
 int main(){
 	/* Setup stuff */
-	double positionInfo[8] = {3.0, 6.0, -1.0, 0.0, 0.0, 0.66, 0.0, 0.0};
 	SDL_Init(SDL_INIT_VIDEO);
 	SDL_CreateWindowAndRenderer(SCREEN_WIDTH, SCREEN_HEIGHT, 0, &window, &renderer);
-	//RenderBackground();
+	RenderBackground();
 
 	/* Thread fun */
 	pthread_t raycast_thread; //this variable is our reference to the second thread
@@ -89,23 +89,30 @@ int main(){
 	double currentFrame = 0;// Time between frames
 	double lastFrame = 0;
 */
-	//printf("%s\n", positionInfo[1]);
 	//return 1;
 
-	/* Create a second thread which executes RayCast(keylist) */
-	if(pthread_create(&raycast_thread, NULL, RayCast, positionInfo)) {
+	//double positionInfo[9] = {3.0, 6.0, -1.0, 0.0, 0.0, 0.66, 0.0, 0.0, FALSE};
+/*
+	printf("%f", positionInfo[1]);
+	/* Create a second thread which executes RayCast(keylist) /
+	if(pthread_create(&raycast_thread, NULL, RayCast, &positionInfo)) {
 		fprintf(stderr, "Error creating thread\n");
 		return 1;
 	}
+	// Perform CheckForInput /
+	CheckForInput(positionInfo);
 
-	/* Perform CheckForInput */
-	CheckForInput();
-
-	/* Pass along the list of pressed keys */
+	// Pass along the list of pressed keys /
 	if(pthread_join(raycast_thread, positionInfo)) {
 		fprintf(stderr, "Error joining thread\n");
 		return 2;
 	}
+*/
+	while (positionInfo[9] == FALSE){
+		RayCast()
+	}
+
+
 
 	/* Cleanly exit */
 	SDL_DestroyRenderer(renderer);
@@ -126,7 +133,7 @@ int main(){
 * --------------------------------- end RayCast() ---- */
 void* RayCast(double *positionInfo){
 	printf("%s\n", "hi");
-	printf("%s\n", positionInfo[0]);
+	printf("%f", positionInfo[1]);
 
 	double player_posX = positionInfo[0]; // Where we are
 	double player_posY = positionInfo[1];
@@ -236,7 +243,7 @@ void* RayCast(double *positionInfo){
 		// CAUSES OCCASIONAL SEGFAULT
 		
 	SDL_RenderPresent(renderer);
-	RenderBackground();
+	//RenderBackground();
 
 	//speed modifiers
 	double moveSpeed = frameTime * 5.0; //the constant value is in squares/second
@@ -244,8 +251,7 @@ void* RayCast(double *positionInfo){
 }
 
 //
-bool verLine(int x, int y1, int y2, int wall_color)
-{
+bool verLine(int x, int y1, int y2, int wall_color){
 	if(y2 < y1) {y1 += y2; y2 = y1 - y2; y1 -= y2;} //swap y1 and y2
 	if(y2 < 0 || y1 >= SCREEN_HEIGHT	|| x < 0 || x >= SCREEN_WIDTH) return 0; //no single point of the line is on screen
 	if(y1 < 0) y1 = 0; //clip
@@ -313,17 +319,19 @@ void RenderBackground(){
 	}
 }
 
-void CheckForInput(){
-	return;
+void CheckForInput(double *positionInfo){
+	printf("%s", "CheckForInput");
+	printf("%f\n", positionInfo[1]);
+	//return;
 	/* Poll for events */
-	/*
+	
 	while( SDL_PollEvent( &event ) ){	
  		switch( event.type ){
-	 		/ Keyboard event /
+	 		// Keyboard event /
 		 	case SDL_KEYUP:
 			 	printf("Hey, you pressed up!\n");
 			 	break;
-			/ SDL_QUIT event (window close) /
+			// SDL_QUIT event (window close) /
 			case SDL_QUIT:
 
 	 			break;
@@ -331,5 +339,5 @@ void CheckForInput(){
 			 	break;
 		}
 	}
-	*/
+	
 }
