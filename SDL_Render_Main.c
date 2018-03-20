@@ -22,16 +22,17 @@
 #define WORLD_WIDTH 5
 #define WORLD_HEIGHT 9
 double positionInfo[9] = {3.0, 6.0, -1.0, 0.0, 0.0, 0.66, 0.0, 0.0, FALSE};
+
 int worldMap[WORLD_HEIGHT][WORLD_WIDTH]=
 {
 	{1,2,3,2,1},
+	{3,0,0,0,3},
 	{1,0,0,0,1},
+	{2,0,0,0,2},	
+	{3,0,0,0,3},
+	{2,0,0,0,2},
 	{1,0,0,0,1},
-	{1,0,0,0,1},	
-	{1,0,0,0,1},
-	{1,0,0,0,1},
-	{1,0,0,0,1},
-	{1,1,0,0,1},
+	{2,1,0,0,2},
 	{1,1,1,1,1}
 };
 
@@ -40,8 +41,8 @@ int worldMap[WORLD_HEIGHT][WORLD_WIDTH]=
 void DrawPixel(int r, int g, int b, int x, int y);
 int ValidateColorRange(int color);
 void RenderBackground();
-void CheckForInput(double *positionInfo);
-void* RayCast(double *positionInfo);
+void CheckForInput();
+void RayCast();
 bool verLine(int x, int y1, int y2, int wall_color);
 
 // Screen dimension constants
@@ -108,8 +109,9 @@ int main(){
 		return 2;
 	}
 */
-	while (positionInfo[9] == FALSE){
-		RayCast()
+	while (positionInfo[9] != TRUE){
+		CheckForInput();
+		RayCast();
 	}
 
 
@@ -131,12 +133,16 @@ int main(){
 *	We'll fill the window with the rendered frame and update accordingly
 *		Pixels are placed individually in vertical rows
 * --------------------------------- end RayCast() ---- */
-void* RayCast(double *positionInfo){
-	printf("%s\n", "hi");
-	printf("%f", positionInfo[1]);
+void RayCast(){
+	//printf("%s\n", "hi");
+	//printf("%f", positionInfo[1]);
+	RenderBackground();
 
 	double player_posX = positionInfo[0]; // Where we are
 	double player_posY = positionInfo[1];
+	//printf("%f\n", positionInfo[1]);
+	//player_posY = player_posY + 1;
+	//printf("%lf\n", fabs(-1.1));
 
 	double directionX = positionInfo[2]; // Where we're facing
 	double directionY = positionInfo[3];
@@ -153,20 +159,20 @@ void* RayCast(double *positionInfo){
 	/* render one vertical line at a time */
 	for(int x = 0; x < SCREEN_WIDTH; x++){
 		// calculate ray position and direction
-		double cameraX = 2 * x / (double)(SCREEN_WIDTH) - 1; // x-coordinate in camera space
-		double rayDirX = directionX + planeX * cameraX;
-		double rayDirY = directionY + planeY * cameraX;
+		double cameraX = 2 * x / ((double)(SCREEN_WIDTH) - 1); // x-coordinate in camera space
+		double rayDirX = positionInfo[2] + positionInfo[4] * cameraX;
+		double rayDirY = positionInfo[3] + positionInfo[5] * cameraX;
 		// which box of the map we're in
 			// we only need double precision for rendering calculations.
 			// it's safe to round off here to figure out which box's boundaries we're within
-		int mapX = (int) player_posX;
-		int mapY = (int) player_posY;
+		int mapX = (int) positionInfo[0];
+		int mapY = (int) positionInfo[1];
 		// length of ray from current position to next x or y-side
 		double sideDistX;
 		double sideDistY;
 		 // length of ray from one side to the next
-		double deltaDistX = abs(1 / rayDirX);
-		double deltaDistY = abs(1 / rayDirY);
+		double deltaDistX = fabs(1 / rayDirX);
+		double deltaDistY = fabs(1 / rayDirY);
 		double perpWallDist;
 		// what direction to step in x or y-direction (either +1 or -1)
 		int stepX;
@@ -176,19 +182,19 @@ void* RayCast(double *positionInfo){
 		//calculate step and initial sideDist
 		if (rayDirX < 0){
 			stepX = -1;
-			sideDistX = (player_posX - mapX) * deltaDistX;
+			sideDistX = (positionInfo[0] - mapX) * deltaDistX;
 		}
 		else{
 			stepX = 1;
-			sideDistX = (mapX + 1.0 - player_posX) * deltaDistX;
+			sideDistX = (mapX + 1.0 - positionInfo[0]) * deltaDistX;
 		}
 		if (rayDirY < 0){
 			stepY = -1;
-			sideDistY = (player_posY - mapY) * deltaDistY;
+			sideDistY = (positionInfo[1] - mapY) * deltaDistY;
 		}
 		else{
 			stepY = 1;
-			sideDistY = (mapY + 1.0 - player_posY) * deltaDistY;
+			sideDistY = (mapY + 1.0 - positionInfo[1]) * deltaDistY;
 		}
 		/* Simple Digital Differential Analysis Algorithm */
 		// determines distance to next
@@ -209,10 +215,10 @@ void* RayCast(double *positionInfo){
 		}
 		//Calculate distance projected on camera direction
 		if (side == 0){
-			perpWallDist = (mapX - player_posX + (1 - stepX) / 2) / rayDirX;
+			perpWallDist = (mapX - positionInfo[0] + (1 - stepX) / 2) / rayDirX;
 		}
 		else{
-			perpWallDist = (mapY - player_posY + (1 - stepY) / 2) / rayDirY;
+			perpWallDist = (mapY - positionInfo[1] + (1 - stepY) / 2) / rayDirY;
 		}
 		//Calculate height of line to draw on screen
 		int lineHeight = (int)(SCREEN_HEIGHT / perpWallDist);
@@ -222,7 +228,7 @@ void* RayCast(double *positionInfo){
 		int drawEnd = lineHeight / 2 + SCREEN_HEIGHT / 2;
 		if(drawEnd >= SCREEN_HEIGHT)drawEnd = SCREEN_HEIGHT - 1;
 		//choose wall color
-		int wall_color;
+		double wall_color;
 		switch(worldMap[mapX][mapY]){
 		case 1:	wall_color = 1;		break; //red
 		case 2:	wall_color = 2;		break; //green
@@ -231,7 +237,7 @@ void* RayCast(double *positionInfo){
 		default: wall_color = 5;	break; //yellow
 		}
 		//give x and y sides different brightness
-		//if (side == 1) {color = color / 2;}
+		if (side == 1) {wall_color = wall_color + 0.5;}
 		//draw the pixels of the stripe as a vertical line
 		verLine(x, drawStart, drawEnd, wall_color);
 	}	
@@ -257,14 +263,25 @@ bool verLine(int x, int y1, int y2, int wall_color){
 	if(y1 < 0) y1 = 0; //clip
 	if(y2 >= SCREEN_WIDTH) y2 = SCREEN_HEIGHT - 1; //clip
 
-	if (wall_color == 1){
+	//printf("%lf\n", wall_color);
+
+	if (wall_color == 1.0){
 		SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255); // draw in red color	
 	}
-	if (wall_color == 2){
+	if (wall_color == 1.5){
+		SDL_SetRenderDrawColor(renderer, 205, 0, 0, 255); // draw in reddish color	
+	}
+	if (wall_color == 2.0){
 		SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255); // draw in green color	
 	}
-	if (wall_color == 3){
+	if (wall_color == 2.5){
+		SDL_SetRenderDrawColor(renderer, 0, 205, 0, 255); // draw in greenish color	
+	}
+	if (wall_color == 3.0){
 		SDL_SetRenderDrawColor(renderer, 0, 0, 255, 255); // draw in blue color	
+	}
+	if (wall_color == 3.5){
+		SDL_SetRenderDrawColor(renderer, 0, 0, 205, 255); // draw in blueish color	
 	}
 
 
@@ -319,24 +336,54 @@ void RenderBackground(){
 	}
 }
 
-void CheckForInput(double *positionInfo){
-	printf("%s", "CheckForInput");
-	printf("%f\n", positionInfo[1]);
+void CheckForInput(){
+	//printf("%s", "CheckForInput");
+	//printf("%f\n", positionInfo[1]);
 	//return;
 	/* Poll for events */
 	
-	while( SDL_PollEvent( &event ) ){	
- 		switch( event.type ){
-	 		// Keyboard event /
-		 	case SDL_KEYUP:
+	while( SDL_PollEvent( &event ) ){
+		// SDL_QUIT event (window close) /
+		if( event.type == SDL_QUIT ){
+			positionInfo[9] = TRUE;
+		}
+		else{
+			Uint8 *keystates = SDL_GetKeyboardState(NULL);
+		 	// Keyboard event /
+			if( keystates[ 	SDL_SCANCODE_UP ] ){
 			 	printf("Hey, you pressed up!\n");
-			 	break;
-			// SDL_QUIT event (window close) /
-			case SDL_QUIT:
-
-	 			break;
-		 	default:
-			 	break;
+			 	if (positionInfo[0] + 0.1 <= (double) (WORLD_HEIGHT)){
+					positionInfo[0] = positionInfo[0] + 0.1;			 		
+			 	}
+			}
+			if( keystates[ SDL_SCANCODE_DOWN ] ){
+				printf("Hey, you pressed down!\n");
+				if (positionInfo[0] + 0.1 <= (double) (WORLD_HEIGHT)){
+					positionInfo[0] = positionInfo[0] - 0.1;
+				}
+			}
+			if( keystates[ 	SDL_SCANCODE_LEFT ]){
+				printf("Hey, you pressed left!\n");
+			 	positionInfo[2] = positionInfo[2] - 0.1;
+			 	positionInfo[3] = positionInfo[3] - 0.1;
+			}
+			if( keystates[ 	SDL_SCANCODE_RIGHT ] ){
+				printf("Hey, you pressed right!\n");
+				positionInfo[2] = positionInfo[2] + 0.1;
+			 	positionInfo[3] = positionInfo[3] + 0.1;
+			}
+			if( keystates[ 	SDL_SCANCODE_D ] ){
+			 	printf("Hey, you pressed D!\n");
+			 	if (positionInfo[1] + 0.1 <= (double) (WORLD_WIDTH)){
+					positionInfo[1] = positionInfo[1] + 0.1;
+			 	}
+			}
+			if( keystates[ SDL_SCANCODE_A ] ){
+				printf("Hey, you pressed A!\n");
+				if (positionInfo[1] + 0.1 <= (double) (WORLD_WIDTH)){
+					positionInfo[1] = positionInfo[1] - 0.1;
+				}
+			}
 		}
 	}
 	
