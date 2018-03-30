@@ -17,6 +17,7 @@
 *				C commenting conventions adapted from http://syque.com/cstyle/ch4.htm
 **************************************************************/
 #include "SDL2/SDL.h"	// Required SDL
+#include "SDL2/SDL_ttf.h"
 #include "stdio.h"		// and standard IO libraries
 #include "stdlib.h"		// rand(), srand()
 #include "time.h"		// time()
@@ -67,50 +68,26 @@ bool displayFPS = FALSE;
 * --------------------------------- end interruptHandler() ---- */
 int main(int argc, char *argv[]){
 	/* Argument Variables */
-	//printf("%s%i\n", "Argument Count: ", argc);
 	for (int i = 1; i < argc; i++){
-		//printf("%s%i%s%s\n", "Argument ", i, ": ", argv[i]);
-		//printf("%s%i%s%s\n", "Argument ", i, ": ", argv[i]);
-		//printf("%s%i%s%s\n", "Next Argument is ", i+1, ": ", argv[i+1]);
-		/*
-		if (!strcmp(argv[i], "-showfps")){
-			printf("%s%s\n", "Current argument is: ", argv[i]);
-		}
-		if (!strcmp(argv[i+1], "true")){
-			printf("%s%s\n", "Next argument is: ", argv[i+1]);
-		}
-		printf("%s\n", "END 1ST LOOP");
-		*/
-
-
-		/*
-		if (strcmp(argv[i], "-showfps")){
-			printf("%s\n", "apsdkpsoakdpsd");
-		}
-		
-		printf("%i\n", i+1);
-		if ((i+1) < argc){
-			printf("%i\n", i+1);
-		}
-
-		if (strcmp(argv[i+1], "true")){
-			printf("%s\n", "MEME");
-		}
-		*/
-
-		if (!strcmp(argv[i], "-showfps") && (i+1) < argc && !strcmp(argv[i+1], "true")){
+		if (!strcmp(argv[i], "-showfps") && (i+1) < argc && !strcmp(argv[i+1], "1")){
 			printf("%s\n", "YOUYOU");
 			displayFPS = TRUE;
 		}
-//			printf("%s\n", argv[i]);
-//			if (i+2 <= argc){
-//				printf("%s\n", argv[i+1]);
-//		}
 	}
 
 	/* Setup stuff */
 	SDL_Init(SDL_INIT_VIDEO);
+	TTF_Init();
+	TTF_Font * font = TTF_OpenFont("opensans.ttf", 25);
 	SDL_CreateWindowAndRenderer(SCREEN_WIDTH, SCREEN_HEIGHT, 0, &window, &renderer);
+	SDL_Color color = { 255, 255, 255 };
+	SDL_Surface * surface = TTF_RenderText_Solid(font, "Welcome to Gigi Labs", color);
+	printf("%s\n", "MEME");
+	SDL_Texture * texture = SDL_CreateTextureFromSurface(renderer, surface);
+	SDL_RenderCopy(renderer, texture, NULL, NULL);
+	SDL_RenderPresent(renderer);
+
+
 	RenderBackground();
 
 	/* Thread fun */
@@ -132,6 +109,8 @@ int main(int argc, char *argv[]){
 		}
 */
 
+
+
 	while (*readyToQuit != TRUE){
 		CheckForInput();
 		RayCast();
@@ -141,6 +120,10 @@ int main(int argc, char *argv[]){
 	/* Cleanly exit */
 	SDL_DestroyRenderer(renderer);
 	SDL_DestroyWindow(window);
+	TTF_CloseFont(font);
+	SDL_DestroyTexture(texture);
+	SDL_FreeSurface(surface);
+	TTF_Quit();
 	SDL_Quit();
 	return EXIT_SUCCESS;
 	
@@ -251,9 +234,14 @@ void RayCast(){
 	double frameTime = (*currentFrame - *lastFrame) / 1000.0; //frameTime is the time this frame has taken, in seconds
 	
 	if (displayFPS == TRUE){
+		TTF_Font * font = TTF_OpenFont("opensans.ttf", 25);
+		SDL_Color color = { 255, 255, 255 };
+		SDL_Surface * surface = TTF_RenderText_Solid(font, "Welcome to Gigi Labs", color);
+		printf("%s\n", "MEME");
+		SDL_Texture * texture = SDL_CreateTextureFromSurface(renderer, surface);
+		SDL_RenderCopy(renderer, texture, NULL, NULL);
 		printf("%lf\n", 1.0 / frameTime);
 	}
-		// CAUSES OCCASIONAL SEGFAULT
 		
 	SDL_RenderPresent(renderer);
 	//RenderBackground();
