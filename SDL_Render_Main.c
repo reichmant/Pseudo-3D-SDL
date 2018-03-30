@@ -1,58 +1,57 @@
 /**************************************************************
 * FILENAME:		SDL_Render_Main.c
 *
-* DESCRIPTION:	The actual project file.
+* DESCRIPTION:	Primitive 3D rendering using a well-known raycasting
+*				algorithm.
 *
-* NOTES:		Render a basic SDL window. No point writing a description
-*				for test file. Just various tests and per-pixel rendering.
+* NOTES:		Encapsulates the entire renderer.
+*					1. Render a basic SDL window.
+*						a. Resolution determined by -w ### -h ### arguments
+*						b. Otherwise, a resolution of 640x480 is used
+*					2. Set up a basic 'world' environment
+*						a. A 2-Dimensional grid space is hardcoded
+*						b. The player's position, direction, etc. are as well.
+*				
 *
 * AUTHORS:		Thomas Reichman
 *				C commenting conventions adapted from http://syque.com/cstyle/ch4.htm
 **************************************************************/
-
-
 #include "SDL2/SDL.h"	// Required SDL
 #include "stdio.h"		// and standard IO libraries
 #include "stdlib.h"		// rand(), srand()
 #include "time.h"		// time()
 #include "pthread.h"	// multithreading support
 #include "const.h"		// personal set of constants
-
-
-#define WORLD_WIDTH 5
-#define WORLD_HEIGHT 9
-double positionInfo[9] = {3.0, 6.0, -1.0, 0.0, 0.0, 0.66, 0.0, 0.0, FALSE};
-
-int worldMap[WORLD_HEIGHT][WORLD_WIDTH]=
-{
-	{1,2,3,2,1},
-	{3,0,0,0,3},
-	{1,0,0,0,1},
-	{2,0,0,0,2},	
-	{3,0,0,0,3},
-	{2,0,0,0,2},
-	{1,0,0,0,1},
-	{2,1,0,0,2},
-	{1,1,1,1,1}
-};
-
+#include "map1.h"
 
 // Function Declarations
-void DrawPixel(int r, int g, int b, int x, int y);
-int ValidateColorRange(int color);
-void RenderBackground();
 void CheckForInput();
 void RayCast();
-bool verLine(int x, int y1, int y2, int wall_color);
+
 
 // Screen dimension constants
-const int SCREEN_WIDTH = 640;
-const int SCREEN_HEIGHT = 480;
+const int SCREEN_WIDTH = 640; //640
+const int SCREEN_HEIGHT = 480; //480
 
 // Globals
 SDL_Renderer *renderer;
 SDL_Event event;
 SDL_Window *window;
+
+double positionInfo[11]	= {3.0, 6.0, -1.0, 0.0, 0.0, 0.66, 0.0, 0.0, FALSE, 0.0, 0.0};
+double *playerPosX 		= &positionInfo[0];
+double *playerPosY 		= &positionInfo[1];
+double *playerDirX 		= &positionInfo[2];
+double *playerDirY 		= &positionInfo[3];
+double *planeX 			= &positionInfo[4];
+double *planeY 			= &positionInfo[5];
+double *currentFrame 	= &positionInfo[6];
+double *lastFrame 		= &positionInfo[7];
+double *readyToQuit 	= &positionInfo[8];
+double *moveSpeed 		= &positionInfo[9];
+double *rotSpeed 		= &positionInfo[10];
+
+bool displayFPS = FALSE;
 
 /* ---- main() ---------------------------------------
 * Parameters: 	None
@@ -66,35 +65,57 @@ SDL_Window *window;
 *			The other updates the player's position/direction and renders a new frame.
 *		3. When a "quit" condition is reached, the program terminates successfully.
 * --------------------------------- end interruptHandler() ---- */
-int main(){
+int main(int argc, char *argv[]){
+	/* Argument Variables */
+	//printf("%s%i\n", "Argument Count: ", argc);
+	for (int i = 1; i < argc; i++){
+		//printf("%s%i%s%s\n", "Argument ", i, ": ", argv[i]);
+		//printf("%s%i%s%s\n", "Argument ", i, ": ", argv[i]);
+		//printf("%s%i%s%s\n", "Next Argument is ", i+1, ": ", argv[i+1]);
+		/*
+		if (!strcmp(argv[i], "-showfps")){
+			printf("%s%s\n", "Current argument is: ", argv[i]);
+		}
+		if (!strcmp(argv[i+1], "true")){
+			printf("%s%s\n", "Next argument is: ", argv[i+1]);
+		}
+		printf("%s\n", "END 1ST LOOP");
+		*/
+
+
+		/*
+		if (strcmp(argv[i], "-showfps")){
+			printf("%s\n", "apsdkpsoakdpsd");
+		}
+		
+		printf("%i\n", i+1);
+		if ((i+1) < argc){
+			printf("%i\n", i+1);
+		}
+
+		if (strcmp(argv[i+1], "true")){
+			printf("%s\n", "MEME");
+		}
+		*/
+
+		if (!strcmp(argv[i], "-showfps") && (i+1) < argc && !strcmp(argv[i+1], "true")){
+			printf("%s\n", "YOUYOU");
+			displayFPS = TRUE;
+		}
+//			printf("%s\n", argv[i]);
+//			if (i+2 <= argc){
+//				printf("%s\n", argv[i+1]);
+//		}
+	}
+
 	/* Setup stuff */
 	SDL_Init(SDL_INIT_VIDEO);
 	SDL_CreateWindowAndRenderer(SCREEN_WIDTH, SCREEN_HEIGHT, 0, &window, &renderer);
 	RenderBackground();
 
 	/* Thread fun */
-	pthread_t raycast_thread; //this variable is our reference to the second thread
+	//pthread_t raycast_thread; //this variable is our reference to the second thread
 	
-
-	/* setup locals */
-/*
-	double player_posX = 3.0; // Where we are
-	double player_posY = 6.0;
-
-	double directionX = -1.0; // Where we're facing
-	double directionY = 0.0;
-
-	double planeX = 0.0;		// Camera plane position
-	double planeY = 0.66;
-
-	double currentFrame = 0;// Time between frames
-	double lastFrame = 0;
-*/
-	//return 1;
-
-	//double positionInfo[9] = {3.0, 6.0, -1.0, 0.0, 0.0, 0.66, 0.0, 0.0, FALSE};
-/*
-	printf("%f", positionInfo[1]);
 	/* Create a second thread which executes RayCast(keylist) /
 	if(pthread_create(&raycast_thread, NULL, RayCast, &positionInfo)) {
 		fprintf(stderr, "Error creating thread\n");
@@ -108,13 +129,14 @@ int main(){
 		fprintf(stderr, "Error joining thread\n");
 		return 2;
 	}
+		}
 */
-	while (positionInfo[9] != TRUE){
+
+	while (*readyToQuit != TRUE){
 		CheckForInput();
 		RayCast();
+		//sleep( 16.66666666 );
 	}
-
-
 
 	/* Cleanly exit */
 	SDL_DestroyRenderer(renderer);
@@ -134,39 +156,21 @@ int main(){
 *		Pixels are placed individually in vertical rows
 * --------------------------------- end RayCast() ---- */
 void RayCast(){
-	//printf("%s\n", "hi");
-	//printf("%f", positionInfo[1]);
+	/* Every frame starts with a background */
+	/* It will be overwritten with actual data */
 	RenderBackground();
-
-	double player_posX = positionInfo[0]; // Where we are
-	double player_posY = positionInfo[1];
-	//printf("%f\n", positionInfo[1]);
-	//player_posY = player_posY + 1;
-	//printf("%lf\n", fabs(-1.1));
-
-	double directionX = positionInfo[2]; // Where we're facing
-	double directionY = positionInfo[3];
-
-	double planeX = positionInfo[4];		// Camera plane position
-	double planeY = positionInfo[5];
-
-	double currentFrame = positionInfo[6];// Time between frames
-	double lastFrame = positionInfo[7];
-
-
-
 
 	/* render one vertical line at a time */
 	for(int x = 0; x < SCREEN_WIDTH; x++){
 		// calculate ray position and direction
 		double cameraX = 2 * x / ((double)(SCREEN_WIDTH) - 1); // x-coordinate in camera space
-		double rayDirX = positionInfo[2] + positionInfo[4] * cameraX;
-		double rayDirY = positionInfo[3] + positionInfo[5] * cameraX;
+		double rayDirX = *playerDirX + *planeX * cameraX;
+		double rayDirY = *playerDirY + *planeY * cameraX;
 		// which box of the map we're in
 			// we only need double precision for rendering calculations.
 			// it's safe to round off here to figure out which box's boundaries we're within
-		int mapX = (int) positionInfo[0];
-		int mapY = (int) positionInfo[1];
+		int mapX = (int) *playerPosX;
+		int mapY = (int) *playerPosY;
 		// length of ray from current position to next x or y-side
 		double sideDistX;
 		double sideDistY;
@@ -182,43 +186,43 @@ void RayCast(){
 		//calculate step and initial sideDist
 		if (rayDirX < 0){
 			stepX = -1;
-			sideDistX = (positionInfo[0] - mapX) * deltaDistX;
+			sideDistX = (*playerPosX - mapX) * deltaDistX;
 		}
 		else{
 			stepX = 1;
-			sideDistX = (mapX + 1.0 - positionInfo[0]) * deltaDistX;
+			sideDistX = (mapX + 1.0 - *playerPosX) * deltaDistX;
 		}
 		if (rayDirY < 0){
 			stepY = -1;
-			sideDistY = (positionInfo[1] - mapY) * deltaDistY;
+			sideDistY = (*playerPosY - mapY) * deltaDistY;
 		}
 		else{
 			stepY = 1;
-			sideDistY = (mapY + 1.0 - positionInfo[1]) * deltaDistY;
+			sideDistY = (mapY + 1.0 - *playerPosY) * deltaDistY;
 		}
 		/* Simple Digital Differential Analysis Algorithm */
 		// determines distance to next
 		while (hit == 0){
 			//jump to next map square, OR in x-direction, OR in y-direction
 			if (sideDistX < sideDistY){
-			sideDistX += deltaDistX;
-			mapX += stepX;
-			side = 0;
-		}
+				sideDistX += deltaDistX;
+				mapX += stepX;
+				side = 0;
+			}
 			else{
-			sideDistY += deltaDistY;
-			mapY += stepY;
-			side = 1;
+				sideDistY += deltaDistY;
+				mapY += stepY;
+				side = 1;
 			}
 			//Check if ray has hit a wall (or out of bounds)
 			if (worldMap[mapX][mapY] > 0) hit = 1;
 		}
 		//Calculate distance projected on camera direction
 		if (side == 0){
-			perpWallDist = (mapX - positionInfo[0] + (1 - stepX) / 2) / rayDirX;
+			perpWallDist = (mapX - *playerPosX + (1 - stepX) / 2) / rayDirX;
 		}
 		else{
-			perpWallDist = (mapY - positionInfo[1] + (1 - stepY) / 2) / rayDirY;
+			perpWallDist = (mapY - *playerPosY + (1 - stepY) / 2) / rayDirY;
 		}
 		//Calculate height of line to draw on screen
 		int lineHeight = (int)(SCREEN_HEIGHT / perpWallDist);
@@ -230,11 +234,11 @@ void RayCast(){
 		//choose wall color
 		double wall_color;
 		switch(worldMap[mapX][mapY]){
-		case 1:	wall_color = 1;		break; //red
-		case 2:	wall_color = 2;		break; //green
-		case 3:	wall_color = 3; 	break; //blue
-		case 4:	wall_color = 4;		break; //white
-		default: wall_color = 5;	break; //yellow
+			case 1:	wall_color = 1;		break; //red
+			case 2:	wall_color = 2;		break; //green
+			case 3:	wall_color = 3; 	break; //blue
+			case 4:	wall_color = 4;		break; //white
+			default: wall_color = 5;	break; //yellow
 		}
 		//give x and y sides different brightness
 		if (side == 1) {wall_color = wall_color + 0.5;}
@@ -242,23 +246,31 @@ void RayCast(){
 		verLine(x, drawStart, drawEnd, wall_color);
 	}	
 	/* timing for input and FPS counter */
-	lastFrame = currentFrame;
-	currentFrame = SDL_GetTicks();
-	double frameTime = (currentFrame - lastFrame) / 1000.0; //frameTime is the time this frame has taken, in seconds
-	//printf("%s\n", 1.0 / frameTime);
+	*lastFrame = *currentFrame;
+	*currentFrame = SDL_GetTicks();
+	double frameTime = (*currentFrame - *lastFrame) / 1000.0; //frameTime is the time this frame has taken, in seconds
+	
+	if (displayFPS == TRUE){
+		printf("%lf\n", 1.0 / frameTime);
+	}
 		// CAUSES OCCASIONAL SEGFAULT
 		
 	SDL_RenderPresent(renderer);
 	//RenderBackground();
 
 	//speed modifiers
-	double moveSpeed = frameTime * 5.0; //the constant value is in squares/second
-	double rotSpeed = frameTime * 3.0; //the constant value is in radians/second
+	*moveSpeed = frameTime * 5.0; //the constant value is in squares/second
+	*rotSpeed = frameTime * 3.0; //the constant value is in radians/second
 }
 
 //
-bool verLine(int x, int y1, int y2, int wall_color){
-	if(y2 < y1) {y1 += y2; y2 = y1 - y2; y1 -= y2;} //swap y1 and y2
+bool verLine(int x, int y1, int y2, double wall_color){
+	//swap y1 and y2
+	if(y2 < y1){
+		y1 += y2;
+		y2 = y1 - y2;
+		y1 -= y2;
+	} 
 	if(y2 < 0 || y1 >= SCREEN_HEIGHT	|| x < 0 || x >= SCREEN_WIDTH) return 0; //no single point of the line is on screen
 	if(y1 < 0) y1 = 0; //clip
 	if(y2 >= SCREEN_WIDTH) y2 = SCREEN_HEIGHT - 1; //clip
@@ -268,20 +280,26 @@ bool verLine(int x, int y1, int y2, int wall_color){
 	if (wall_color == 1.0){
 		SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255); // draw in red color	
 	}
-	if (wall_color == 1.5){
-		SDL_SetRenderDrawColor(renderer, 205, 0, 0, 255); // draw in reddish color	
+	else if (wall_color == 1.5){
+		SDL_SetRenderDrawColor(renderer, 130, 0, 0, 255); // draw in reddish color	
 	}
-	if (wall_color == 2.0){
+	else if (wall_color == 2.0){
 		SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255); // draw in green color	
 	}
-	if (wall_color == 2.5){
-		SDL_SetRenderDrawColor(renderer, 0, 205, 0, 255); // draw in greenish color	
+	else if (wall_color == 2.5){
+		SDL_SetRenderDrawColor(renderer, 0, 130, 0, 255); // draw in greenish color	
 	}
-	if (wall_color == 3.0){
+	else if (wall_color == 3.0){
 		SDL_SetRenderDrawColor(renderer, 0, 0, 255, 255); // draw in blue color	
 	}
-	if (wall_color == 3.5){
-		SDL_SetRenderDrawColor(renderer, 0, 0, 205, 255); // draw in blueish color	
+	else if (wall_color == 3.5){
+		SDL_SetRenderDrawColor(renderer, 0, 0, 130, 255); // draw in blueish color	
+	}
+	else if (wall_color == 5.0){
+		SDL_SetRenderDrawColor(renderer, 255, 255, 0, 255); // draw in yellow color	
+	}
+	else{
+		SDL_SetRenderDrawColor(renderer, 255, 130, 0, 255); // draw in yellow color	
 	}
 
 
@@ -341,48 +359,72 @@ void CheckForInput(){
 	//printf("%f\n", positionInfo[1]);
 	//return;
 	/* Poll for events */
+		
+	//*readyToQuit = *readyToQuit + 1;
+	//printf("%lf\n", positionInfo[8]);
+	//printf("%lf\n", readyToQuit);
 	
 	while( SDL_PollEvent( &event ) ){
 		// SDL_QUIT event (window close) /
 		if( event.type == SDL_QUIT ){
-			positionInfo[9] = TRUE;
+			*readyToQuit = TRUE;
 		}
 		else{
+			//double moveSpeed = 0.1;
+			//double rotSpeed = 0.1;
 			Uint8 *keystates = SDL_GetKeyboardState(NULL);
 		 	// Keyboard event /
-			if( keystates[ 	SDL_SCANCODE_UP ] ){
-			 	printf("Hey, you pressed up!\n");
-			 	if (positionInfo[0] + 0.1 <= (double) (WORLD_HEIGHT)){
-					positionInfo[0] = positionInfo[0] + 0.1;			 		
-			 	}
-			}
-			if( keystates[ SDL_SCANCODE_DOWN ] ){
-				printf("Hey, you pressed down!\n");
-				if (positionInfo[0] + 0.1 <= (double) (WORLD_HEIGHT)){
-					positionInfo[0] = positionInfo[0] - 0.1;
+			if( keystates[ SDL_SCANCODE_W ] ){
+			 	//printf("Hey, you pressed W!\n");
+
+			 	/* Determine coordinates of where we'd like to end up */
+			 	double newXPos = *playerPosX + (*playerDirX * *moveSpeed);
+			 	double newYPos = *playerPosY + (*playerDirY * *moveSpeed);
+
+			 	/* End up there if we can */
+				if(worldMap[(int)(newXPos)][(int)(*playerPosY)] == EMPTYSPACE){
+					*playerPosX = newXPos;
 				}
+      			if(worldMap[(int)(*playerPosX)][(int)(newYPos)] == EMPTYSPACE){
+      				*playerPosY = newYPos;
+      			}
+			}
+			if( keystates[ SDL_SCANCODE_S ] ){
+				//printf("Hey, you pressed S!\n");
+				double newXPos = *playerPosX - (*playerDirX * *moveSpeed);
+				double newYPos = *playerPosY - (*playerDirY * *moveSpeed);
+
+			 	/* End up there if we can */
+				if(worldMap[(int)(newXPos)][(int)(*playerPosY)] == EMPTYSPACE){
+					*playerPosX = newXPos;
+				}
+      			if(worldMap[(int)(*playerPosX)][(int)(newYPos)] == EMPTYSPACE){
+      				*playerPosY = newYPos;
+      			}
 			}
 			if( keystates[ 	SDL_SCANCODE_LEFT ]){
-				printf("Hey, you pressed left!\n");
-			 	positionInfo[2] = positionInfo[2] - 0.1;
-			 	positionInfo[3] = positionInfo[3] - 0.1;
+			 	double oldDirX = *playerDirX;
+			 	*playerDirX = *playerDirX * cos(*rotSpeed) - *playerDirY * sin(*rotSpeed);
+			 	*playerDirY = oldDirX * sin(*rotSpeed) + *playerDirY * cos(*rotSpeed);
+			 	double oldPlaneX = *planeX;
+			 	*planeX = *planeX * cos(*rotSpeed) - *planeY * sin(*rotSpeed);
+			 	*planeY = oldPlaneX * sin(*rotSpeed) + *planeY * cos(*rotSpeed);
 			}
 			if( keystates[ 	SDL_SCANCODE_RIGHT ] ){
-				printf("Hey, you pressed right!\n");
-				positionInfo[2] = positionInfo[2] + 0.1;
-			 	positionInfo[3] = positionInfo[3] + 0.1;
+			 	double oldDirX = *playerDirX;
+			 	*playerDirX = *playerDirX * cos(-*rotSpeed) - *playerDirY * sin(-*rotSpeed);
+			 	*playerDirY = oldDirX * sin(-*rotSpeed) + *playerDirY * cos(-*rotSpeed);
+			 	double oldPlaneX = *planeX;
+			 	*planeX = *planeX * cos(-*rotSpeed) - *planeY * sin(-*rotSpeed);
+			 	*planeY = oldPlaneX * sin(-*rotSpeed) + *planeY * cos(-*rotSpeed);
 			}
 			if( keystates[ 	SDL_SCANCODE_D ] ){
-			 	printf("Hey, you pressed D!\n");
-			 	if (positionInfo[1] + 0.1 <= (double) (WORLD_WIDTH)){
-					positionInfo[1] = positionInfo[1] + 0.1;
-			 	}
+			 	//printf("Hey, you pressed D!\n");
+
 			}
 			if( keystates[ SDL_SCANCODE_A ] ){
-				printf("Hey, you pressed A!\n");
-				if (positionInfo[1] + 0.1 <= (double) (WORLD_WIDTH)){
-					positionInfo[1] = positionInfo[1] - 0.1;
-				}
+				//printf("Hey, you pressed A!\n");
+
 			}
 		}
 	}
