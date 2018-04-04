@@ -9,7 +9,7 @@
 *						a. Resolution determined by -w ### -h ### arguments
 *						b. Otherwise, a resolution of 640x480 is used
 *					2. Set up a basic 'world' environment
-*						a. A 2-Dimensional grid space is hardcoded
+*						a. A 2-Dimensional grid space is hardcoded in map file
 *						b. The player's position, direction, etc. are as well.
 *				
 *
@@ -24,21 +24,13 @@
 #include "pthread.h"	// multithreading support
 #include "const.h"		// personal set of constants
 #include "map1.h"
+#include "SDL_Helpers.h"
 
 // Function Declarations
 void CheckForInput();
 void RayCast();
 
-
-// Screen dimension constants
-const int SCREEN_WIDTH = 640; //640
-const int SCREEN_HEIGHT = 480; //480
-
-// Globals
-SDL_Renderer *renderer;
-SDL_Event event;
-SDL_Window *window;
-
+// Position Globals
 double positionInfo[11]	= {3.0, 6.0, -1.0, 0.0, 0.0, 0.66, 0.0, 0.0, FALSE, 0.0, 0.0};
 double *playerPosX 		= &positionInfo[0];
 double *playerPosY 		= &positionInfo[1];
@@ -52,42 +44,55 @@ double *readyToQuit 	= &positionInfo[8];
 double *moveSpeed 		= &positionInfo[9];
 double *rotSpeed 		= &positionInfo[10];
 
-bool displayFPS = FALSE;
+int displayFPS = FPS_OFF; // don't show FPS unless specified via arguments
 
 /* ---- main() ---------------------------------------
-* Parameters: 	None
+* Parameters: 	Various Arguments (see ReadMe.MD)
 * Type: 		Public
 * Return:		termination reason (success/failure)
 * Description:
 *	Encapsulates the entire program
-*		1. Setup a basic SDL window and threads
-*		2. Run two threads that interact with eachother.
-*			One thread checks for input and returns which key(s) have been pressed.
-*			The other updates the player's position/direction and renders a new frame.
+*		0. Handle any commandline arguments if neccessary
+*		1. Setup a basic SDL window
+*		2. Alternatively run two functions:
+*			a. One checks for input and updates information about the player
+*				(position, direction etc.) based on which keys are presssed.
+*			b. The other updates the player's position/direction and renders
+*				a new frame.
 *		3. When a "quit" condition is reached, the program terminates successfully.
-* --------------------------------- end interruptHandler() ---- */
+*			All related libraries exit cleanly and window/process is destroyed.
+* --------------------------------- end main() ---- */
 int main(int argc, char *argv[]){
 	/* Argument Variables */
 	for (int i = 1; i < argc; i++){
-		if (!strcmp(argv[i], "-showfps") && (i+1) < argc && !strcmp(argv[i+1], "1")){
-			printf("%s\n", "YOUYOU");
-			displayFPS = TRUE;
+		if (!strcmp(argv[i], "-showfps") && (i+1) < argc){
+			if (!strcmp(argv[i+1], "1")){
+				printf("%s\n", "Showing FPS in Window");
+				displayFPS = FPS_WINDOW;
+			}
+			else if (!strcmp(argv[i+1], "2")){
+				printf("%s\n", "Showing FPS in Terminal");
+				displayFPS = FPS_TERMINAL;
+			}
 		}
+		else if (!strcmp(argv[i], "-h") && (i+1) < argc){
+			printf("%s%i\n", "Vertical resoluton: ",   atoi(argv[i+1]));
+			SCREEN_HEIGHT =  atoi(argv[i+1]);
+			if (SCREEN_HEIGHT = 0) SCREEN_WIDTH = 480;
+		}
+		else if (!strcmp(argv[i], "-w") && (i+1) < argc){
+			if (!isdigit(argv[i+1][0]) || argv[i+1] == 0) SCREEN_WIDTH = 640;
+			else SCREEN_WIDTH  =  atoi(argv[i+1]);
+			printf("%s%i\n", "Horizontal resoluton: ", SCREEN_WIDTH);
+		}
+
+
 	}
 
-	/* Setup stuff */
+	/* Setup libraries and create window */
 	SDL_Init(SDL_INIT_VIDEO);
 	TTF_Init();
-	TTF_Font * font = TTF_OpenFont("opensans.ttf", 25);
 	SDL_CreateWindowAndRenderer(SCREEN_WIDTH, SCREEN_HEIGHT, 0, &window, &renderer);
-	SDL_Color color = { 255, 255, 255 };
-	SDL_Surface * surface = TTF_RenderText_Solid(font, "Welcome to Gigi Labs", color);
-	printf("%s\n", "MEME");
-	SDL_Texture * texture = SDL_CreateTextureFromSurface(renderer, surface);
-	SDL_RenderCopy(renderer, texture, NULL, NULL);
-	SDL_RenderPresent(renderer);
-
-
 	RenderBackground();
 
 	/* Thread fun */
@@ -120,9 +125,6 @@ int main(int argc, char *argv[]){
 	/* Cleanly exit */
 	SDL_DestroyRenderer(renderer);
 	SDL_DestroyWindow(window);
-	TTF_CloseFont(font);
-	SDL_DestroyTexture(texture);
-	SDL_FreeSurface(surface);
 	TTF_Quit();
 	SDL_Quit();
 	return EXIT_SUCCESS;
@@ -141,7 +143,17 @@ int main(int argc, char *argv[]){
 void RayCast(){
 	/* Every frame starts with a background */
 	/* It will be overwritten with actual data */
-	RenderBackground();
+	//RenderBackground();
+	
+	SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+	/*
+	for (int x = 0; x < SCREEN_WIDTH; x++){
+		for (int y = 0; y < SCREEN_HEIGHT; y++){
+			SDL_RenderDrawPoint(renderer, x, y);
+		}
+	}
+	*/
+	SDL_RenderClear(renderer);
 
 	/* render one vertical line at a time */
 	for(int x = 0; x < SCREEN_WIDTH; x++){
@@ -227,119 +239,52 @@ void RayCast(){
 		if (side == 1) {wall_color = wall_color + 0.5;}
 		//draw the pixels of the stripe as a vertical line
 		verLine(x, drawStart, drawEnd, wall_color);
-	}	
+	}
+	/*	
+	unsigned long endTime;
+	unsigned long currentTime;
+	currentTime = (unsigned long)time(NULL);
+	endTime = currentTime + 1;
+	while (currentTime < endTime)
+	*/
+
 	/* timing for input and FPS counter */
 	*lastFrame = *currentFrame;
+	//sleep( 16.66666666 );
 	*currentFrame = SDL_GetTicks();
-	double frameTime = (*currentFrame - *lastFrame) / 1000.0; //frameTime is the time this frame has taken, in seconds
+	long double frameTime = (*currentFrame - *lastFrame) / 1000.0; //frameTime is the time this frame has taken, in seconds
 	
-	if (displayFPS == TRUE){
+	if (displayFPS == FPS_WINDOW){
 		TTF_Font * font = TTF_OpenFont("opensans.ttf", 25);
 		SDL_Color color = { 255, 255, 255 };
-		SDL_Surface * surface = TTF_RenderText_Solid(font, "Welcome to Gigi Labs", color);
-		printf("%s\n", "MEME");
+
+		char result[999];
+		sprintf(result, "%lu", (long unsigned) round(1.0/frameTime));
+		SDL_Surface * surface = TTF_RenderText_Solid(font, result, color);
 		SDL_Texture * texture = SDL_CreateTextureFromSurface(renderer, surface);
-		SDL_RenderCopy(renderer, texture, NULL, NULL);
-		printf("%lf\n", 1.0 / frameTime);
-	}
+
+		int texW = 0;
+		int texH = 0;
+		SDL_QueryTexture(texture, NULL, NULL, &texW, &texH);
+		SDL_Rect dstrect = { 0, 0, texW, texH };
+		SDL_RenderCopy(renderer, texture, NULL, &dstrect);
 		
+		TTF_CloseFont(font);
+		SDL_DestroyTexture(texture);
+		SDL_FreeSurface(surface);
+	}
+
+	else if (displayFPS == FPS_TERMINAL){
+		printf("%i\n", (int) round(1.0/frameTime));
+	}
+
 	SDL_RenderPresent(renderer);
 	//RenderBackground();
 
 	//speed modifiers
-	*moveSpeed = frameTime * 5.0; //the constant value is in squares/second
-	*rotSpeed = frameTime * 3.0; //the constant value is in radians/second
-}
-
-//
-bool verLine(int x, int y1, int y2, double wall_color){
-	//swap y1 and y2
-	if(y2 < y1){
-		y1 += y2;
-		y2 = y1 - y2;
-		y1 -= y2;
-	} 
-	if(y2 < 0 || y1 >= SCREEN_HEIGHT	|| x < 0 || x >= SCREEN_WIDTH) return 0; //no single point of the line is on screen
-	if(y1 < 0) y1 = 0; //clip
-	if(y2 >= SCREEN_WIDTH) y2 = SCREEN_HEIGHT - 1; //clip
-
-	//printf("%lf\n", wall_color);
-
-	if (wall_color == 1.0){
-		SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255); // draw in red color	
-	}
-	else if (wall_color == 1.5){
-		SDL_SetRenderDrawColor(renderer, 130, 0, 0, 255); // draw in reddish color	
-	}
-	else if (wall_color == 2.0){
-		SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255); // draw in green color	
-	}
-	else if (wall_color == 2.5){
-		SDL_SetRenderDrawColor(renderer, 0, 130, 0, 255); // draw in greenish color	
-	}
-	else if (wall_color == 3.0){
-		SDL_SetRenderDrawColor(renderer, 0, 0, 255, 255); // draw in blue color	
-	}
-	else if (wall_color == 3.5){
-		SDL_SetRenderDrawColor(renderer, 0, 0, 130, 255); // draw in blueish color	
-	}
-	else if (wall_color == 5.0){
-		SDL_SetRenderDrawColor(renderer, 255, 255, 0, 255); // draw in yellow color	
-	}
-	else{
-		SDL_SetRenderDrawColor(renderer, 255, 130, 0, 255); // draw in yellow color	
-	}
-
-
-	int bufp;
-	//bufp = (int)scr->pixels + y1 * scr->pitch / 4 + x;
-	for(int y = y1; y <= y2; y++)
-	{
-	 SDL_RenderDrawPoint(renderer, x, y);
-	}
-	return 1;
-}
-
-/* Draw function abstraction */
-void DrawPixel(int r, int g, int b, int x, int y){
-	SDL_SetRenderDrawColor(renderer, r, g, b, 255); // draw in told color
-	SDL_RenderDrawPoint(renderer, x, y);
-}
-
-/* Assert acceptable color values */
-int ValidateColorRange(int color){
-	if (color > 255) color = 255;
-	else if (color < 0) color = 0;
-	return color;
-}
-
-void RenderBackground(){
-	int currentPartition;
-	int MAXpartition = 9; // must be odd for proper symmetry
-	int R = 60;
-	int G = 40;
-	int B = 0;
-	int x;
-	int y;
+	*moveSpeed = frameTime * 10.0; //the constant value is in squares/second
+	*rotSpeed = frameTime * 6.0; //the constant value is in radians/second
 	
-	for (currentPartition = 0; currentPartition < MAXpartition+1; currentPartition++){
-		for (x = 0; x < SCREEN_WIDTH; x++){
-			for (y = (SCREEN_HEIGHT/MAXpartition)*(currentPartition); y < (SCREEN_HEIGHT/MAXpartition)*(currentPartition+1); y++){
-				DrawPixel(ValidateColorRange(R), ValidateColorRange(G), ValidateColorRange(B), x, y);
-			}
-		}
-		if (currentPartition > (MAXpartition/2)-1){
-			R = R + 5;
-			G = G + 5;
-			B = B + 5;
-		}
-		else{
-			R = R - 5;
-			G = G - 5;
-			B = B - 5;
-		}
-
-	}
 }
 
 void CheckForInput(){
