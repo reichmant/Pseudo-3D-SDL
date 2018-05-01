@@ -44,3 +44,4 @@ Raycasting Algorithm heavily adapted from Lode Vandevenne’s [Computer Graphics
 Used for educational purposes only.
 
 This project is currently compliant with GPL 3, from what I can tell.
+OpenSans.ttf is under Apache License, Version 2.0. You can replace it with any .ttf font if you'd like.
