@@ -5,11 +5,19 @@ This is a rendering engine comparable to that used in the 1922 video game by id 
 ### Prerequisites
 You'll need to install SDL2, SDL2_ttf and GCC for the architecture of the target machine. SDL2_ttf is only neccessary for displaying the FPS in the window - you can remove this from the "includes" if you don't intend to use this option
 ### Compiling
-If you intend to build for your local machine, simply running 'make' will work. Similarly, if you modify the makefile to point to your SDL2 and GCC paths, you can compile for Raspberry Pi 3 by typing 
+If you intend to build for your local machine, simply running 
+```
+make
+```
+will work. Similarly, if you modify the makefile to point to your SDL2 and GCC paths, you can compile for Raspberry Pi 3 by typing 
 ```
 make pi
 ```
-.
+Oh, and you can swap maps out by changing the "include" to a different (but similarly formatted) file instead of the default
+```
+map1.h
+```
+
 ## Usage
 The compiled executable can be run directly. There are a few command line arguments:
 ```
