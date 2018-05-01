@@ -12,15 +12,12 @@
 *						a. A 2-Dimensional grid space is hardcoded in map file
 *						b. The player's position, direction, etc. are as well.
 *				
-*
 * AUTHORS:		Thomas Reichman
 *				C commenting conventions adapted from http://syque.com/cstyle/ch4.htm
 **************************************************************/
 #include "SDL2/SDL.h"	// Required SDL
-#include "SDL2/SDL_ttf.h"
-#include "stdio.h"		// and standard IO libraries
-#include "stdlib.h"		// rand(), srand()
-#include "time.h"		// time()
+#include "SDL2/SDL_ttf.h" // For displaying frame rate in window
+#include "stdio.h"		// Required standard IO libraries
 #include "pthread.h"	// multithreading support
 #include "const.h"		// personal set of constants
 #include "map1.h"
@@ -31,7 +28,7 @@ void CheckForInput();
 void RayCast();
 
 // Position Globals
-double positionInfo[11]	= {3.0, 6.0, -1.0, 0.0, 0.0, 0.66, 0.0, 0.0, FALSE, 0.0, 0.0};
+double positionInfo[11]	= {3.0, 6.0, -1.0, 0.0, 0.0, 0.66, 0.0, 0.0, FALSE, 0.1, 0.1};
 double *playerPosX 		= &positionInfo[0];
 double *playerPosY 		= &positionInfo[1];
 double *playerDirX 		= &positionInfo[2];
@@ -54,7 +51,7 @@ int displayFPS = FPS_OFF; // don't show FPS unless specified via arguments
 *	Encapsulates the entire program
 *		0. Handle any commandline arguments if neccessary
 *		1. Setup a basic SDL window
-*		2. Alternatively run two functions:
+*		2. Alternatingly run two functions:
 *			a. One checks for input and updates information about the player
 *				(position, direction etc.) based on which keys are presssed.
 *			b. The other updates the player's position/direction and renders
@@ -76,14 +73,19 @@ int main(int argc, char *argv[]){
 			}
 		}
 		else if (!strcmp(argv[i], "-h") && (i+1) < argc){
-			printf("%s%i\n", "Vertical resoluton: ",   atoi(argv[i+1]));
-			SCREEN_HEIGHT =  atoi(argv[i+1]);
-			if (SCREEN_HEIGHT = 0) SCREEN_WIDTH = 480;
+			if (!isdigit(argv[i+1][0]) || argv[i+1] == 0) SCREEN_HEIGHT = 480;
+			else SCREEN_HEIGHT  =  atoi(argv[i+1]);
+			printf("%s%i\n", "Vertical resoluton: ", SCREEN_HEIGHT);
 		}
 		else if (!strcmp(argv[i], "-w") && (i+1) < argc){
 			if (!isdigit(argv[i+1][0]) || argv[i+1] == 0) SCREEN_WIDTH = 640;
 			else SCREEN_WIDTH  =  atoi(argv[i+1]);
 			printf("%s%i\n", "Horizontal resoluton: ", SCREEN_WIDTH);
+		}
+		else if (!strcmp(argv[i], "-limitfps") && (i+1) < argc){
+			if (!isdigit(argv[i+1][0]) || argv[i+1] == 0) SCREEN_WIDTH = 640;
+			else FPS_LIMIT  =  atoi(argv[i+1]);
+			printf("%s%i\n", "FPS limit: ", FPS_LIMIT);
 		}
 
 
@@ -92,30 +94,11 @@ int main(int argc, char *argv[]){
 	/* Setup libraries and create window */
 	SDL_Init(SDL_INIT_VIDEO);
 	TTF_Init();
-	SDL_CreateWindowAndRenderer(SCREEN_WIDTH, SCREEN_HEIGHT, 0, &window, &renderer);
+
+	SDL_CreateWindowAndRenderer(SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_OPENGL, &window, &renderer);
 	RenderBackground();
 
-	/* Thread fun */
-	//pthread_t raycast_thread; //this variable is our reference to the second thread
-	
-	/* Create a second thread which executes RayCast(keylist) /
-	if(pthread_create(&raycast_thread, NULL, RayCast, &positionInfo)) {
-		fprintf(stderr, "Error creating thread\n");
-		return 1;
-	}
-	// Perform CheckForInput /
-	CheckForInput(positionInfo);
-
-	// Pass along the list of pressed keys /
-	if(pthread_join(raycast_thread, positionInfo)) {
-		fprintf(stderr, "Error joining thread\n");
-		return 2;
-	}
-		}
-*/
-
-
-
+	/* Rendering/Input Loop */
 	while (*readyToQuit != TRUE){
 		CheckForInput();
 		RayCast();
@@ -138,47 +121,35 @@ int main(int argc, char *argv[]){
 * Description:
 *	Renders an entire frame using a traditional raycasting algorithm
 *	We'll fill the window with the rendered frame and update accordingly
-*		Pixels are placed individually in vertical rows
+*		Pixels are placed in vertical rows
 * --------------------------------- end RayCast() ---- */
 void RayCast(){
-	/* Every frame starts with a background */
-	/* It will be overwritten with actual data */
-	//RenderBackground();
-	
-	SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-	/*
-	for (int x = 0; x < SCREEN_WIDTH; x++){
-		for (int y = 0; y < SCREEN_HEIGHT; y++){
-			SDL_RenderDrawPoint(renderer, x, y);
-		}
-	}
-	*/
-	SDL_RenderClear(renderer);
+	Uint32 start_time = SDL_GetTicks(); // Get time at start to determine how long it takes to render
 
-	/* render one vertical line at a time */
+	/* Render one vertical line at a time */
 	for(int x = 0; x < SCREEN_WIDTH; x++){
-		// calculate ray position and direction
+		// Calculate ray position and direction
 		double cameraX = 2 * x / ((double)(SCREEN_WIDTH) - 1); // x-coordinate in camera space
 		double rayDirX = *playerDirX + *planeX * cameraX;
 		double rayDirY = *playerDirY + *planeY * cameraX;
-		// which box of the map we're in
-			// we only need double precision for rendering calculations.
-			// it's safe to round off here to figure out which box's boundaries we're within
+		// Which box of the map we're in
+			// We only need double precision for rendering calculations.
+			// It's safe to round off here to figure out which box's boundaries we're within
 		int mapX = (int) *playerPosX;
 		int mapY = (int) *playerPosY;
-		// length of ray from current position to next x or y-side
+		// Length of ray from current position to next x or y-side
 		double sideDistX;
 		double sideDistY;
-		 // length of ray from one side to the next
+		 // Length of ray from one side to the next
 		double deltaDistX = fabs(1 / rayDirX);
 		double deltaDistY = fabs(1 / rayDirY);
 		double perpWallDist;
-		// what direction to step in x or y-direction (either +1 or -1)
+		// What direction to step in x or y-direction (either +1 or -1)
 		int stepX;
 		int stepY;
 		int hit = 0;	// was there a wall hit?
-		int side; 		// /was a NS or a EW wall hit?	
-		//calculate step and initial sideDist
+		int side; 		// which side was hit?
+		// Calculate step and initial sideDist
 		if (rayDirX < 0){
 			stepX = -1;
 			sideDistX = (*playerPosX - mapX) * deltaDistX;
@@ -196,9 +167,9 @@ void RayCast(){
 			sideDistY = (mapY + 1.0 - *playerPosY) * deltaDistY;
 		}
 		/* Simple Digital Differential Analysis Algorithm */
-		// determines distance to next
+		// determines distance to next grid line, so that we can check if a wall's there
 		while (hit == 0){
-			//jump to next map square, OR in x-direction, OR in y-direction
+			// Jump to next map square, OR in x-direction, OR in y-direction
 			if (sideDistX < sideDistY){
 				sideDistX += deltaDistX;
 				mapX += stepX;
@@ -209,24 +180,24 @@ void RayCast(){
 				mapY += stepY;
 				side = 1;
 			}
-			//Check if ray has hit a wall (or out of bounds)
+			// Check if ray has hit a wall (or out of bounds)
 			if (worldMap[mapX][mapY] > 0) hit = 1;
 		}
-		//Calculate distance projected on camera direction
+		// Calculate distance projected on camera direction
 		if (side == 0){
 			perpWallDist = (mapX - *playerPosX + (1 - stepX) / 2) / rayDirX;
 		}
 		else{
 			perpWallDist = (mapY - *playerPosY + (1 - stepY) / 2) / rayDirY;
 		}
-		//Calculate height of line to draw on screen
+		// Calculate height of line to draw on screen
 		int lineHeight = (int)(SCREEN_HEIGHT / perpWallDist);
-		//calculate lowest and highest pixel to fill in current stripe
+		// Calculate the beginning and end positions of the line
 		int drawStart = -lineHeight / 2 + SCREEN_HEIGHT / 2;
 		if(drawStart < 0)drawStart = 0;
 		int drawEnd = lineHeight / 2 + SCREEN_HEIGHT / 2;
 		if(drawEnd >= SCREEN_HEIGHT)drawEnd = SCREEN_HEIGHT - 1;
-		//choose wall color
+		// Choose wall color
 		double wall_color;
 		switch(worldMap[mapX][mapY]){
 			case 1:	wall_color = 1;		break; //red
@@ -235,32 +206,33 @@ void RayCast(){
 			case 4:	wall_color = 4;		break; //white
 			default: wall_color = 5;	break; //yellow
 		}
-		//give x and y sides different brightness
+		// Give x and y sides different brightness
 		if (side == 1) {wall_color = wall_color + 0.5;}
-		//draw the pixels of the stripe as a vertical line
+		// Draw the vertical line associated with this array
 		verLine(x, drawStart, drawEnd, wall_color);
 	}
-	/*	
-	unsigned long endTime;
-	unsigned long currentTime;
-	currentTime = (unsigned long)time(NULL);
-	endTime = currentTime + 1;
-	while (currentTime < endTime)
-	*/
 
 	/* timing for input and FPS counter */
-	*lastFrame = *currentFrame;
-	//sleep( 16.66666666 );
-	*currentFrame = SDL_GetTicks();
-	long double frameTime = (*currentFrame - *lastFrame) / 1000.0; //frameTime is the time this frame has taken, in seconds
+	Uint32 end_time = SDL_GetTicks();
+    int frameTime = FPS_LIMIT;
+
+    if((1000/FPS_LIMIT)>(end_time-start_time)){
+    	SDL_Delay((1000/FPS_LIMIT)-(end_time-start_time)); //Yay stable framerate!
+    }
+
+    else{
+		frameTime = (end_time - start_time) / 1000.0; //frameTime is the time this frame has taken, in seconds
+    }
 	
+
+
 	if (displayFPS == FPS_WINDOW){
 		TTF_Font * font = TTF_OpenFont("opensans.ttf", 25);
 		SDL_Color color = { 255, 255, 255 };
 
-		char result[999];
-		sprintf(result, "%lu", (long unsigned) round(1.0/frameTime));
-		SDL_Surface * surface = TTF_RenderText_Solid(font, result, color);
+		char charFPS[5];
+		sprintf(charFPS, "%i", frameTime);
+		SDL_Surface * surface = TTF_RenderText_Solid(font, charFPS, color);
 		SDL_Texture * texture = SDL_CreateTextureFromSurface(renderer, surface);
 
 		int texW = 0;
@@ -274,46 +246,53 @@ void RayCast(){
 		SDL_FreeSurface(surface);
 	}
 
-	else if (displayFPS == FPS_TERMINAL){
-		printf("%i\n", (int) round(1.0/frameTime));
+
+	if (displayFPS == FPS_TERMINAL){
+		printf("%i\n", frameTime);
 	}
 
-	SDL_RenderPresent(renderer);
-	//RenderBackground();
+	SDL_RenderPresent(renderer); // Display what we just made
 
-	//speed modifiers
-	*moveSpeed = frameTime * 10.0; //the constant value is in squares/second
-	*rotSpeed = frameTime * 6.0; //the constant value is in radians/second
-	
+	/* Every frame starts with a black background
+		It will be overwritten with actual data */
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+    SDL_RenderClear(renderer);
 }
 
 void CheckForInput(){
-	//printf("%s", "CheckForInput");
-	//printf("%f\n", positionInfo[1]);
-	//return;
 	/* Poll for events */
-		
-	//*readyToQuit = *readyToQuit + 1;
-	//printf("%lf\n", positionInfo[8]);
-	//printf("%lf\n", readyToQuit);
-	
 	while( SDL_PollEvent( &event ) ){
-		// SDL_QUIT event (window close) /
+		/* SDL_QUIT event (window close by any means) */
+			// includes pressing X in tile bar, Alt+F4, Crtl+C in terminal, etc.
 		if( event.type == SDL_QUIT ){
-			*readyToQuit = TRUE;
+			*readyToQuit = TRUE; // this variable is the end condition of the infinite loop,
+									// allowing the program to exit gracefully
 		}
 		else{
-			//double moveSpeed = 0.1;
-			//double rotSpeed = 0.1;
-			Uint8 *keystates = SDL_GetKeyboardState(NULL);
-		 	// Keyboard event /
+			Uint8 *keystates = SDL_GetKeyboardState(NULL); // Get list of keys pressed
+		 	/* Search for certain key presses recorded in the keyboard event */
+
+
+			if( keystates[ SDL_SCANCODE_Q ] ){
+				*readyToQuit = TRUE;
+			}
+
+
+		 	/* Forward movement */
 			if( keystates[ SDL_SCANCODE_W ] ){
-			 	//printf("Hey, you pressed W!\n");
-
 			 	/* Determine coordinates of where we'd like to end up */
-			 	double newXPos = *playerPosX + (*playerDirX * *moveSpeed);
-			 	double newYPos = *playerPosY + (*playerDirY * *moveSpeed);
+			 		/* If we are holding left shift, we "sprint" by moving 2x speed */
+				double newXPos;
+				double newYPos;
+				if (keystates[ SDL_SCANCODE_LSHIFT]){
+					newXPos = *playerPosX + (*playerDirX * (*moveSpeed * 2));
+					newYPos = *playerPosY + (*playerDirY * (*moveSpeed * 2));
+				}
 
+				else{
+				 	newXPos = *playerPosX + (*playerDirX * *moveSpeed);
+				 	newYPos = *playerPosY + (*playerDirY * *moveSpeed);
+				}
 			 	/* End up there if we can */
 				if(worldMap[(int)(newXPos)][(int)(*playerPosY)] == EMPTYSPACE){
 					*playerPosX = newXPos;
@@ -322,11 +301,21 @@ void CheckForInput(){
       				*playerPosY = newYPos;
       			}
 			}
+
+			/* Backward movement */
 			if( keystates[ SDL_SCANCODE_S ] ){
-				//printf("Hey, you pressed S!\n");
-				double newXPos = *playerPosX - (*playerDirX * *moveSpeed);
-				double newYPos = *playerPosY - (*playerDirY * *moveSpeed);
-
+				/* Determine coordinates of where we'd like to end up */
+					/* If we are holding left shift, we "sprint" by moving 2x speed */
+				double newXPos;
+				double newYPos;
+				if (keystates[ SDL_SCANCODE_LSHIFT]){
+					newXPos = *playerPosX - (*playerDirX * (*moveSpeed * 2));
+					newYPos = *playerPosY - (*playerDirY * (*moveSpeed * 2));
+				}
+				else{
+					newXPos = *playerPosX - (*playerDirX * *moveSpeed);
+					newYPos = *playerPosY - (*playerDirY * *moveSpeed);
+				}
 			 	/* End up there if we can */
 				if(worldMap[(int)(newXPos)][(int)(*playerPosY)] == EMPTYSPACE){
 					*playerPosX = newXPos;
@@ -335,6 +324,8 @@ void CheckForInput(){
       				*playerPosY = newYPos;
       			}
 			}
+
+			/* Turn viewing direction to the left */
 			if( keystates[ 	SDL_SCANCODE_LEFT ]){
 			 	double oldDirX = *playerDirX;
 			 	*playerDirX = *playerDirX * cos(*rotSpeed) - *playerDirY * sin(*rotSpeed);
@@ -343,6 +334,8 @@ void CheckForInput(){
 			 	*planeX = *planeX * cos(*rotSpeed) - *planeY * sin(*rotSpeed);
 			 	*planeY = oldPlaneX * sin(*rotSpeed) + *planeY * cos(*rotSpeed);
 			}
+
+			/* Turn viewing direction to the right */
 			if( keystates[ 	SDL_SCANCODE_RIGHT ] ){
 			 	double oldDirX = *playerDirX;
 			 	*playerDirX = *playerDirX * cos(-*rotSpeed) - *playerDirY * sin(-*rotSpeed);
@@ -351,13 +344,18 @@ void CheckForInput(){
 			 	*planeX = *planeX * cos(-*rotSpeed) - *planeY * sin(-*rotSpeed);
 			 	*planeY = oldPlaneX * sin(-*rotSpeed) + *planeY * cos(-*rotSpeed);
 			}
+
+			/* Strafe to the left */
 			if( keystates[ 	SDL_SCANCODE_D ] ){
 			 	//printf("Hey, you pressed D!\n");
+			 	/* TODO: Implement strafing */
 
 			}
+
+			/* Strafe to the right */
 			if( keystates[ SDL_SCANCODE_A ] ){
 				//printf("Hey, you pressed A!\n");
-
+				/* TODO: Implement strafing */
 			}
 		}
 	}
