@@ -1,5 +1,7 @@
 # Pseudo 3D Rendering Engine in SDL2
-This is a rendering engine comparable to that used in the 1922 video game by id software, *Wolfenstein 3D*. It implements a similar raycasting algorithm, but uses C and SDL2.
+This is a cross-platform (and cross-architecture) rendering engine comparable to that used in the 1922 video game by id software, *Wolfenstein 3D*. It implements a similar raycasting algorithm, but uses C and SDL2. The purpose of the project is to implement the same design concepts as the original engine but use modern libraries and programming techniques to potentially improve the performance of the engine. This serves as a comparison of how modern programming styles have different results, even when targerting similarly spec'd hardware.
+
+The detailed performance results were later used in a course at Xavier University for an "independent research project" course.
 
 ## Getting Started
 ### Prerequisites
